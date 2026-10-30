@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#A0666F">
+<meta name="description" content="Ália: assistente pessoal com agenda, finanças, viagens e um chat que aprende com você.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="icon" href="assets/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Ália">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Ália — Assistente Executivo</title>
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/aila.css">
+<script src="js/tema.js"></script>
+</head>
+<body>
+<main class="app">
+<header><div class="brand"><div class="logo">ália</div><small class="ver">v<span data-app-version></span></small></div><div class="avatar">L</div></header>
+<div class="demo" id="demoBar">Modo demonstração: seus dados ficam salvos só neste aparelho. Publicada no Apps Script, a Ália mostra sua agenda real.</div>
+
+<section id="today" class="screen active">
+<h1 id="greet">Olá, Loh.<br>Seu dia está organizado.</h1>
+<div class="sub">Sua rotina, compromissos e viagens em um só lugar.</div>
+<div class="card hero"><small>PRÓXIMO COMPROMISSO</small><h2 id="heroTitle">Carregando…</h2><div class="chips" id="heroChips"></div></div>
+<div class="section-title">Ações rápidas</div>
+<div class="quick">
+<button onclick="go('assistant')">✦ Falar com a Ália</button>
+<button onclick="newEvent()">＋ Novo compromisso</button>
+<button onclick="go('trips')">✈ Organizar viagem</button>
+<button onclick="travelSearch()">⌕ Buscar voo e hotel</button>
+</div>
+<div class="section-title">Hoje</div><div id="todayList"></div>
+</section>
+
+<section id="agenda" class="screen">
+<h1>Agenda</h1><div class="sub">Visão mensal com compromissos e conflitos.</div>
+<div id="conflictBox"></div>
+<div class="card">
+<div class="month-head"><button onclick="moveMonth(-1)">‹</button><div class="month-title" id="monthTitle"></div><button onclick="moveMonth(1)">›</button></div>
+<div class="week"><div>D</div><div>S</div><div>T</div><div>Q</div><div>Q</div><div>S</div><div>S</div></div>
+<div class="calendar" id="calendar"></div>
+</div>
+<div class="section-title" id="selectedTitle">Compromissos</div><div id="events"></div>
+</section>
+
+<section id="assistant" class="screen">
+<h1>Falar com a Ália</h1><div class="sub">Escreva ou use o microfone.</div>
+<div class="chat" id="chat"><div class="bubble ai">Oi, Loh. Me diga o que marcar, por exemplo: "marca reunião com a Brena quinta às 14h". Eu verifico conflitos e só crio o evento depois da sua confirmação. Também lanço finanças: "gastei 80 no mercado ontem" ou "recebi 1.500 de honorários hoje".</div></div>
+<div class="composer"><button class="round" onclick="voice()" title="Falar">🎙</button><input id="msg" placeholder="Ex.: marca reunião amanhã às 14h" enterkeyhint="send"><button class="round" onclick="send()" title="Enviar">↑</button></div>
+<p class="note" id="voiceNote">O comando de voz depende do suporte do navegador. Nenhuma alteração é enviada ao Google Agenda sem sua confirmação.</p>
+</section>
+
+<section id="finance" class="screen">
+<h1>Finanças</h1><div class="sub">Receitas, despesas e contas a pagar do mês.</div>
+<div class="card"><div class="month-head flush"><button onclick="moveFin(-1)">‹</button><div class="month-title" id="finMonth"></div><button onclick="moveFin(1)">›</button></div></div>
+<div class="fin-sum" id="finSum"></div>
+<div class="section-title">Novo lançamento</div>
+<form class="card fin-form" id="finForm" onsubmit="addFin(event)">
+  <div class="seg"><button type="button" id="tpD" class="on" onclick="setTipo('d')">Despesa</button><button type="button" id="tpR" onclick="setTipo('r')">Receita</button></div>
+  <input class="full" id="fDesc" placeholder="Descrição" maxlength="60" required>
+  <input id="fVal" inputmode="decimal" placeholder="Valor (R$)" required>
+  <input id="fDate" type="date" min="2000-01-01" max="2100-12-31" required>
+  <select class="full" id="fCat"></select>
+  <label class="full note check"><input type="checkbox" id="fPago" checked> Já paga ou recebida (desmarque se estiver pendente)</label>
+  <button class="primary full" type="submit">Adicionar</button>
+</form>
+<div class="section-title">Despesas por categoria</div><div id="finCats"></div>
+<div class="section-title">Lançamentos do mês</div><div id="finList"></div>
+</section>
+
+<section id="trips" class="screen">
+<h1>Viagens</h1><div class="sub">Voo, hotel, compromissos e documentos conectados.</div>
+<div class="card"><small>VIAGEM EM PLANEJAMENTO</small><h2 class="trip-title">São Paulo</h2><div class="meta">17–19 de novembro</div>
+<div class="trip-grid"><div class="mini">✈️<br><b>Voo</b><br>Pesquisar opções</div><div class="mini">🏨<br><b>Hotel</b><br>Próximo ao compromisso</div><div class="mini">📅<br><b>Agenda</b><br>Conectar eventos</div><div class="mini">📎<br><b>Documentos</b><br>Vouchers e reservas</div></div></div>
+<button class="primary" onclick="travelSearch()">Montar opções da viagem</button>
+</section>
+
+<section id="profile" class="screen">
+<h1>Preferências</h1><div class="sub">A Ália aprende como você prefere organizar sua rotina.</div>
+<div class="card" id="prefsBox"></div>
+<div class="section-title">Nomes inteligentes</div>
+<div class="card"><div id="apelidosBox"></div>
+<form class="fin-form" onsubmit="submitApelido(event)">
+  <input id="apDe" aria-label="Quando eu escrever" placeholder="Se eu escrever" maxlength="30" required>
+  <input id="apPara" aria-label="A Ália mostra" placeholder="A Ália mostra" maxlength="60" required>
+  <button class="primary full" type="submit">Adicionar apelido</button>
+</form></div>
+<div class="section-title">O que a Ália aprendeu</div>
+<div class="card"><div id="aprendidoBox"></div>
+<p class="note">Eu só aprendo com o que você corrige ou escolhe. Tudo fica aqui, só neste aparelho, e você pode pedir para esquecer.</p></div>
+<div class="section-title">Aparência</div>
+<div class="card"><div class="seg tres" id="temaSeg"><button type="button" data-tema="auto" onclick="setTema('auto')">Automático</button><button type="button" data-tema="light" onclick="setTema('light')">Claro</button><button type="button" data-tema="dark" onclick="setTema('dark')">Escuro</button></div>
+<p class="note">Automático segue o tema do celular ou do computador.</p></div>
+<div class="section-title">Instalar no celular</div>
+<div class="card"><div id="instalarBox"></div>
+<p class="note">Os dados ficam só neste aparelho. No iPhone, a Ália instalada guarda os dados à parte do Safari; para levar o que você já criou (ou trocar de aparelho), use o Backup.</p></div>
+<div id="dadosLocais"><div class="section-title">Dados</div>
+<div class="card"><p class="note">Seus compromissos e lançamentos ficam salvos só neste aparelho, neste navegador.</p>
+<button type="button" class="secondary" id="btnApagar" onclick="apagarDados()">Apagar dados deste aparelho</button></div></div>
+<div class="section-title">Backup</div>
+<div class="card"><p class="note">Baixe um arquivo com suas preferências, apelidos, o que a Ália aprendeu e os dados deste aparelho. Para voltar, importe o arquivo.</p>
+<button type="button" class="secondary" onclick="exportar()">Exportar arquivo</button>
+<button type="button" class="secondary" onclick="$('#arquivo').click()">Importar arquivo</button>
+<input type="file" id="arquivo" accept="application/json,.json" hidden>
+<div id="importBox"></div></div>
+</section>
+</main>
+
+<nav>
+<button class="active" data-id="today" onclick="go('today')"><span class="ico">⌂</span>Hoje</button>
+<button data-id="agenda" onclick="go('agenda')"><span class="ico">▦</span>Agenda</button>
+<button data-id="assistant" onclick="go('assistant')"><span class="ico">✦</span>Ália</button>
+<button data-id="finance" onclick="go('finance')"><span class="ico">$</span>Finanças</button>
+<button data-id="trips" onclick="go('trips')"><span class="ico">✈</span>Viagens</button>
+<button data-id="profile" onclick="go('profile')"><span class="ico">○</span>Perfil</button>
+</nav>
+
+<div class="update" id="atualizacao" hidden role="status"><span id="atualizacaoTexto">Há uma versão nova da Ália.</span><span class="acoes"><button type="button" class="mini-btn" onclick="dispensarAtualizacao()">Depois</button><button type="button" class="mini-btn" onclick="atualizarApp()">Atualizar</button></span></div>
+
+<div class="modal-bg" id="modal"><div class="modal"><button class="close" onclick="closeModal()">×</button><h3 id="modalTitle">Ália</h3><p id="modalText"></p><button class="primary" onclick="closeModal()">Entendi</button></div></div>
+
+<script src="js/version.js"></script>
+<script src="js/util.js"></script>
+<script src="js/memoria.js"></script>
+<script src="js/ponte.js"></script>
+<script src="js/agenda.js"></script>
+<script src="js/interprete.js"></script>
+<script src="js/assistente.js"></script>
+<script src="js/financas.js"></script>
+<script src="js/perfil.js"></script>
+<script src="js/app.js"></script>
+<script src="js/pwa.js"></script>
+</body>
+</html>

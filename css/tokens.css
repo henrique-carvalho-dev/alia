@@ -1,0 +1,40 @@
+/* Tokens da Ália. Tema claro é o padrão; o escuro vale por escolha (data-theme="dark")
+   ou, no modo automático, quando o sistema está escuro. Os dois blocos escuros são iguais. */
+:root{
+  color-scheme:light;
+  --rose:#A0666F; --rose-dark:#82535C; --rose-soft:#EEDDE0; --on-rose:#FFFFFF;
+  --page:#E9E0DF; --bg:#FAF5F3; --card:#FFFFFF; --ink:#332A2C; --muted:#76666A; --line:#EADBDD;
+  --warn:#FFF0EA; --warn-ink:#9B533F; --warn-line:#F1D3C8;
+  --ok:#EDF5EF; --ok-line:#D6E6DA;
+  --good:#3E7D55; --danger:#B4432F; --conflict:#C8573B;
+  --chip:rgba(0,0,0,.14);
+  --nav-bg:rgba(255,255,255,.96); --nav-ink:#76666A;
+  --overlay:rgba(47,32,37,.36);
+  --demo-bg:#FFF7DD; --demo-ink:#7A5B00;
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --rose:#D99BA6; --rose-dark:#EBB9C1; --rose-soft:#3B2A2F; --on-rose:#2A1A1E;
+  --page:#110C0E; --bg:#1C1517; --card:#282023; --ink:#F3E9EA; --muted:#B8A4A8; --line:#3E3034;
+  --warn:#3A2520; --warn-ink:#F2B6A2; --warn-line:#5C3A30;
+  --ok:#1E2D23; --ok-line:#2E4A37;
+  --good:#7FCB98; --danger:#F2907C; --conflict:#F2907C;
+  --chip:rgba(0,0,0,.14);
+  --nav-bg:rgba(40,32,35,.96); --nav-ink:#A8969A;
+  --overlay:rgba(0,0,0,.6);
+  --demo-bg:#3A3218; --demo-ink:#EBD27F;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --rose:#D99BA6; --rose-dark:#EBB9C1; --rose-soft:#3B2A2F; --on-rose:#2A1A1E;
+    --page:#110C0E; --bg:#1C1517; --card:#282023; --ink:#F3E9EA; --muted:#B8A4A8; --line:#3E3034;
+    --warn:#3A2520; --warn-ink:#F2B6A2; --warn-line:#5C3A30;
+    --ok:#1E2D23; --ok-line:#2E4A37;
+    --good:#7FCB98; --danger:#F2907C; --conflict:#F2907C;
+    --chip:rgba(0,0,0,.14);
+    --nav-bg:rgba(40,32,35,.96); --nav-ink:#A8969A;
+    --overlay:rgba(0,0,0,.6);
+    --demo-bg:#3A3218; --demo-ink:#EBD27F;
+  }
+}
