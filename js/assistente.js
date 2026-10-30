@@ -48,12 +48,13 @@ async function send(){
   await loadMonth(y,m);
   if(meu!==seqEnvio)return;
   const s=p.hh*60+p.mi,e=Math.min(s+p.dur,1439);   // o compromisso termina, no máximo, às 23:59 (é o que fica gravado)
-  const clash=eventsOn(k).filter(x=>!x.allDay&&s<x.e&&x.s<e);
+  const virt=rotinasVirtuais(k).filter(x=>chaveRotina(x.title)!==chaveRotina(p.title));   // rotina confirmada que costuma cair nesse dia da semana, mesmo fora da agenda
+  const clash=eventsOn(k).filter(x=>!x.allDay&&s<x.e&&x.s<e).concat(virt.filter(x=>s<x.e&&x.s<e));
   const dt=p.date.toLocaleDateString('pt-BR',{weekday:'long',day:'2-digit',month:'2-digit'});
   let html=`<b>${esc(p.title)}</b><br>${esc(dt)}, ${hhmm(s)}–${hhmm(e)}`;
   if(clash.length){
-    const alt=freeSlot(k,p.dur);
-    html+=`<br><br>⚠️ Conflita com: ${clash.map(x=>esc(x.title)+' ('+hhmm(x.s)+')').join(', ')}.`+(alt!==null?` Horário livre mais próximo: ${hhmm(alt)}.`:'');
+    const alt=freeSlot(k,p.dur,0,virt);
+    html+=`<br><br>⚠️ Conflita com: ${clash.map(x=>esc(x.title)+' ('+hhmm(x.s)+(ehRotina(x)?', sua rotina':'')+')').join(', ')}.`+(clash.some(x=>x.virtual)?' Você costuma ter essa rotina nesse dia da semana, mesmo sem ela estar na agenda.':'')+(alt!==null?` Horário livre mais próximo: ${hhmm(alt)}.`:'');
   }
   if(new Date(y,m,d,p.hh,p.mi)<new Date())html+='<br><br>🕘 Esse horário já passou. Confirme só se quiser registrar mesmo assim.';
   pending={title:p.title,y,m,d,h:p.hh,mi:p.mi,dur:p.dur};

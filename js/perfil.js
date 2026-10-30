@@ -9,6 +9,10 @@ function renderPerfil(){
   const meus=Object.entries(p.apelidos).map(([k,v])=>`<div class="pref"><span>${esc(k)} → ${esc(v)}</span><button class="mini-btn" data-rem-apelido="${esc(k)}">Remover</button></div>`);
   $('#apelidosBox').innerHTML=padrao.concat(meus).join('');
   const apr=Object.entries(p.categorias);
+  const rot=Object.entries(p.rotinas);
+  $('#rotinasBox').innerHTML=rot.length
+    ?rot.map(([k,r])=>`<div class="pref"><span>${esc(r.titulo)} · ${hhmm(r.hora)} <small class="note">${r.dias.map(d=>DIAS_ABREV[d]).join(', ')} · ${r.estado==='sim'?'rotina':'descartada'}</small></span><button class="mini-btn" data-esquecer-rotina="${esc(k)}">Esquecer</button></div>`).join('')
+    :'<p class="note">Ainda não notei nenhuma rotina. Quando um compromisso se repetir em alguns dias, eu pergunto na tela Hoje.</p>';
   $('#aprendidoBox').innerHTML=apr.length
     ?apr.map(([k,a])=>`<div class="pref"><span>${esc(k.slice(2))} → ${esc(a.cat)} <small class="note">${a.tipo==='d'?'despesa':'receita'} · ${a.n}×</small></span><button class="mini-btn" data-esquecer="${esc(k)}">Esquecer</button></div>`).join('')
     :'<p class="note">Ainda não aprendi nada. Quando você trocar a categoria de um lançamento no chat, eu anoto aqui.</p>';
@@ -24,6 +28,10 @@ $('#apelidosBox').addEventListener('click',e=>{
 $('#aprendidoBox').addEventListener('click',e=>{
   const b=e.target.closest('button[data-esquecer]');if(!b)return;
   esquecerCategoria(b.dataset.esquecer);renderPerfil();
+});
+$('#rotinasBox').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-esquecer-rotina]');if(!b)return;
+  esquecerRotina(b.dataset.esquecerRotina);renderPerfil();
 });
 function submitApelido(ev){
   ev.preventDefault();
@@ -53,7 +61,7 @@ $('#arquivo').addEventListener('change',async e=>{
   backupPendente=r;
   const s=r.resumo;
   const semDados=IN_GAS||!r.dados;   // o arquivo não traz compromissos e lançamentos (ou o app roda no Apps Script): os seus não são tocados
-  const itens=s.apelidos+' apelido(s), '+s.aprendidos+' item(ns) aprendido(s)'+(IN_GAS?'':(r.dados?', '+s.eventos+' compromisso(s) e '+s.financas+' lançamento(s)':'; sem compromissos nem lançamentos (os seus continuam como estão)'));
+  const itens=s.apelidos+' apelido(s), '+s.aprendidos+' item(ns) aprendido(s), '+s.rotinas+' rotina(s)'+(IN_GAS?'':(r.dados?', '+s.eventos+' compromisso(s) e '+s.financas+' lançamento(s)':'; sem compromissos nem lançamentos (os seus continuam como estão)'));
   const alvo=!r.perfil?'os compromissos e lançamentos deste aparelho (as preferências, os apelidos e o que a Ália aprendeu continuam como estão)':(semDados?'as preferências, os apelidos e o que a Ália aprendeu':'o que a Ália tem agora neste aparelho');
   $('#importBox').innerHTML=`<div class="okbox"><strong>Backup de ${esc(r.quando||'data desconhecida')}</strong>${itens}.<br>Importar <b>substitui</b> ${alvo}.<div class="btns"><button class="btn-ok" onclick="confirmarImport()">Substituir tudo</button><button class="btn-no" onclick="cancelarImport()">Cancelar</button></div></div>`;
 });

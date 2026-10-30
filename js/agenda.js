@@ -26,14 +26,22 @@ function conflictsOn(date){
   }
   return pairs;
 }
-function freeSlot(date,dur,after){
-  const busy=eventsOn(date).filter(e=>!e.allDay).sort((a,b)=>a.s-b.s);
+/* rotinas confirmadas: num dia da semana em que a pessoa costuma ter a rotina e ela não está na agenda, o horário conta como ocupado */
+function rotinasVirtuais(date){
+  const dow=diaDaSemana(date),reais=new Set(eventsOn(date).map(e=>chaveRotina(e.title)));
+  return rotinasAtivas().filter(r=>r.dias.includes(dow)&&!reais.has(r.chave))
+    .map(r=>({title:r.titulo,s:r.hora,e:Math.min(r.hora+r.dur,1439),allDay:false,virtual:true}));
+}
+const ehRotina=e=>e.virtual||rotinasAtivas().some(r=>r.chave===chaveRotina(e.title));
+function freeSlot(date,dur,after,extras){
+  const busy=eventsOn(date).concat(extras||[]).filter(e=>!e.allDay).sort((a,b)=>a.s-b.s);
   for(let t=Math.max(8*60,after||0);t+dur<=19*60;t+=30){
     if(!busy.some(e=>t<e.e&&e.s<t+dur))return t;
   }
   return null;
 }
 
+let avisoRotina='';   // confirmação curta depois de responder "é uma rotina?"
 async function renderToday(){
   const h=new Date().getHours();
   $('#greet').innerHTML=(h<12?'Bom dia':h<18?'Boa tarde':'Boa noite')+', Loh.<br>Seu dia está organizado.';
@@ -48,8 +56,47 @@ async function renderToday(){
     $('#heroTitle').textContent=list.length?'Nada mais por hoje':'Dia livre';
     $('#heroChips').innerHTML='<span class="chip">✨ Aproveite o tempo</span>';
   }
+  renderAtencoes(k,nowMin);
+  renderRotinaProposta(t.getFullYear(),t.getMonth());
   $('#todayList').innerHTML=list.length?list.map(rowHTML).join(''):'<div class="card"><div class="meta">Nenhum compromisso hoje.</div></div>';
 }
+/* Atenções de hoje, por regra: por enquanto, conflito que envolve uma rotina confirmada */
+function atencoesHoje(k,nowMin){
+  const out=[];
+  conflictsOn(k).forEach(([a,b])=>{
+    if(Math.max(a.e,b.e)<=nowMin)return;   // já passou
+    const ra=ehRotina(a),rb=ehRotina(b);
+    if(!ra&&!rb)return;
+    const rot=ra?a:b,outro=ra?b:a,slot=freeSlot(k,outro.e-outro.s,Math.ceil(nowMin/30)*30,rotinasVirtuais(k));
+    out.push('Sua rotina <b>'+esc(rot.title)+'</b> ('+hhmm(rot.s)+') está em conflito com <b>'+esc(outro.title)+'</b> ('+hhmm(outro.s)+').'+(slot!==null?' Horário livre para '+esc(outro.title)+': '+hhmm(slot)+'.':''));
+  });
+  return out;
+}
+function renderAtencoes(k,nowMin){
+  const a=atencoesHoje(k,nowMin);
+  $('#atencoes').innerHTML=a.length?'<div class="warning"><strong>⚠️ Atenção hoje</strong>'+a.join('<br><br>')+'</div>':'';
+}
+/* a Ália propõe uma rotina por vez; só vira rotina se a pessoa confirmar */
+function rotinasDoMes(y,m){return detectarRotinas(cache[mkey(y,m)]||[])}
+function renderRotinaProposta(y,m){
+  const box=$('#rotinaBox'),r=rotinasDoMes(y,m)[0];
+  if(r){
+    box.innerHTML=(avisoRotina?'<div class="okbox">'+avisoRotina+'</div>':'')+'<div class="okbox"><strong>Parece uma rotina sua</strong>'+esc(r.titulo)+' aparece em '+r.n+' dias por volta das '+hhmm(r.hora)+' ('+r.dias.map(d=>DIAS_ABREV[d]).join(', ')+'). É uma rotina?<div class="fin-actions"><button class="mini-btn" data-rotina="sim" data-chave="'+esc(r.chave)+'">É uma rotina</button><button class="mini-btn" data-rotina="nao" data-chave="'+esc(r.chave)+'">Não é</button></div></div>';
+    avisoRotina='';
+  }else{
+    box.innerHTML=avisoRotina?'<div class="okbox">'+avisoRotina+'</div>':'';
+    avisoRotina='';
+  }
+}
+$('#rotinaBox').addEventListener('click',e=>{
+  const b=e.target.closest('button[data-rotina]');if(!b)return;
+  const t=new Date(),r=rotinasDoMes(t.getFullYear(),t.getMonth()).find(x=>x.chave===b.dataset.chave);
+  if(r){
+    const sim=b.dataset.rotina==='sim',ok=sim?aceitarRotina(r):descartarRotina(r);
+    avisoRotina=ok?(sim?'Anotei: '+esc(r.titulo)+' é uma rotina sua. Vou avisar de conflitos com ela. Você pode conferir ou esquecer em Perfil.':'Tudo bem, não vou sugerir '+esc(r.titulo)+' como rotina. Dá para voltar atrás em Perfil.'):'Não consegui anotar: você chegou ao limite de rotinas. Esqueça alguma em Perfil.';
+  }
+  renderToday();
+});
 function rowHTML(e){
   const conf=!e.allDay&&conflictsOn(e.date).some(p=>p.includes(e));
   return `<div class="card row"><div class="time">${e.allDay?'Dia':hhmm(e.s)}</div><div class="grow"><div class="title">${esc(e.title)}</div><div class="meta">${e.allDay?'Dia inteiro':hhmm(e.s)+' – '+hhmm(e.e)}${e.cal?' · '+esc(e.cal):''}</div></div>${conf?'<span class="badge warn">conflito</span>':''}</div>`;

@@ -4,14 +4,19 @@
    Só aprende com o que você faz (correções e escolhas suas). */
 const PERFIL_CHAVE='aila_perfil';
 const PREFS=[['aerea','Companhia aérea'],['assento','Assento'],['hotel','Hotel'],['aeroporto','Aeroporto']];
-const MAX_APELIDOS=100,MAX_APRENDIDOS=500;
-const perfilVazio=()=>({v:1,prefs:{},apelidos:{},categorias:{}});
+const MAX_APELIDOS=100,MAX_APRENDIDOS=500,MAX_ROTINAS=50,MIN_DIAS_ROTINA=3;
+const DIAS_ABREV=['dom','seg','ter','qua','qui','sex','sáb'];
+const perfilVazio=()=>({v:1,prefs:{},apelidos:{},categorias:{},rotinas:{}});
 let perfilAtual=null;
 
 const textoCurto=(v,max)=>typeof v==='string'?cortar(v.trim(),max):'';
 const eObjeto=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
 /* categorias aprendidas: a chave é "tipo:descrição" (d:feira bairro), então despesa e receita não se misturam */
 const chaveCat=(tipo,desc)=>tipo+':'+strip(textoCurto(desc,60));
+
+/* rotinas: a chave é o título sem acento e em minúsculas */
+const chaveRotina=t=>strip(textoCurto(t,60)).split(' ').filter(Boolean).join(' ');
+const diaDaSemana=iso=>new Date(+iso.slice(0,4),+iso.slice(5,7)-1,+iso.slice(8,10)).getDay();
 
 /* o que vem do armazenamento ou de um arquivo é sempre saneado: só entra o que tem o formato esperado */
 function sanearPerfil(p){
@@ -30,6 +35,15 @@ function sanearPerfil(p){
     const m=/^([dr]):(.+)$/.exec(strip(textoCurto(k,62)));
     if(!m||m[1]!==c.tipo||!m[2].trim()||m[2].trim()==='__proto__')continue;
     o.categorias[c.tipo+':'+m[2].trim()]={cat:c.cat,tipo:c.tipo,n:Math.max(1,Math.min(9999,parseInt(c.n,10)||1))};
+  }
+  if(eObjeto(p.rotinas))for(const k of Object.keys(p.rotinas)){
+    if(Object.keys(o.rotinas).length>=MAX_ROTINAS)break;
+    const r=p.rotinas[k],ch=chaveRotina(k);
+    if(!eObjeto(r)||!ch||ch==='__proto__')continue;
+    const titulo=textoCurto(r.titulo,60),hora=parseInt(r.hora,10),dur=parseInt(r.dur,10);
+    const dias=Array.isArray(r.dias)?[...new Set(r.dias.filter(d=>Number.isInteger(d)&&d>=0&&d<=6))].sort():[];
+    if(!titulo||!(hora>=0&&hora<1440)||!dias.length)continue;
+    o.rotinas[ch]={titulo,hora,dur:dur>=5&&dur<=720?dur:60,dias,estado:r.estado==='nao'?'nao':'sim',n:Math.max(1,Math.min(9999,parseInt(r.n,10)||1))};
   }
   return o;
 }
@@ -94,6 +108,42 @@ function reforcarCategoria(k){
 }
 function esquecerCategoria(k){const p=lerPerfil();delete p.categorias[k];gravarPerfil(p)}
 
+/* rotinas: compromissos que se repetem em vários dias, por volta da mesma hora (ex.: AYO, o treino diário).
+   A Ália só PROPÕE (detectarRotinas); vira rotina quando a pessoa confirma. Dá para esquecer em Perfil. */
+function rotinasAtivas(){const r=lerPerfil().rotinas;return Object.keys(r).filter(k=>r[k].estado==='sim').map(k=>Object.assign({chave:k},r[k]))}
+function detectarRotinas(eventos){
+  const jaSabe=lerPerfil().rotinas,grupos=new Map();
+  for(const e of eventos||[]){
+    if(!e||e.allDay||typeof e.title!=='string'||typeof e.date!=='string'||!Number.isFinite(e.s)||!Number.isFinite(e.e))continue;
+    const k=chaveRotina(e.title);
+    if(!k||k==='__proto__'||Object.prototype.hasOwnProperty.call(jaSabe,k))continue;
+    if(!grupos.has(k))grupos.set(k,{titulo:textoCurto(e.title,60),dias:new Map()});
+    const g=grupos.get(k).dias;
+    if(!g.has(e.date)||e.s<g.get(e.date).s)g.set(e.date,e);   // um por dia
+  }
+  const achadas=[];
+  for(const [k,g] of grupos){
+    const lista=[...g.dias.values()],ss=lista.map(e=>e.s).sort((a,b)=>a-b),med=ss[ss.length>>1];
+    const perto=lista.filter(e=>Math.abs(e.s-med)<=30);   // "por volta da mesma hora": até 30 min de diferença
+    if(perto.length<MIN_DIAS_ROTINA)continue;
+    const hora=Math.max(0,Math.min(1439,Math.round(perto.reduce((t,e)=>t+e.s,0)/perto.length)));
+    const durs=perto.map(e=>e.e-e.s).filter(d=>d>=5&&d<=720).sort((a,b)=>a-b);
+    achadas.push({chave:k,titulo:grupos.get(k).titulo,hora,dur:durs.length?durs[durs.length>>1]:60,
+      dias:[...new Set(perto.map(e=>diaDaSemana(e.date)))].sort(),n:perto.length});
+  }
+  return achadas.sort((a,b)=>b.n-a.n||(a.chave<b.chave?-1:1));
+}
+function guardarRotina(r,estado){
+  if(!r||typeof r.chave!=='string'||!r.chave||r.chave==='__proto__')return false;
+  const p=lerPerfil();
+  if(!Object.prototype.hasOwnProperty.call(p.rotinas,r.chave)&&Object.keys(p.rotinas).length>=MAX_ROTINAS)return false;
+  p.rotinas[r.chave]={titulo:r.titulo,hora:r.hora,dur:r.dur,dias:r.dias.slice(),estado,n:r.n};
+  return gravarPerfil(p);
+}
+const aceitarRotina=r=>guardarRotina(r,'sim');
+const descartarRotina=r=>guardarRotina(r,'nao');
+function esquecerRotina(k){const p=lerPerfil();delete p.rotinas[k];gravarPerfil(p)}
+
 /* backup: perfil + dados deste aparelho num arquivo .json */
 function montarBackup(){
   const d=new Date();
@@ -108,7 +158,7 @@ function lerBackup(texto){
   if(!perfil&&!dados)return {ok:false,erro:'O backup está vazio ou danificado.'};
   const quando=typeof o.dia==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(o.dia)?o.dia:(typeof o.exportadoEm==='string'?o.exportadoEm.slice(0,10):'');
   return {ok:true,perfil,dados,quando,
-    resumo:{apelidos:perfil?Object.keys(perfil.apelidos).length:0,aprendidos:perfil?Object.keys(perfil.categorias).length:0,eventos:dados?dados.eventos.length:0,financas:dados?dados.financas.length:0}};
+    resumo:{apelidos:perfil?Object.keys(perfil.apelidos).length:0,aprendidos:perfil?Object.keys(perfil.categorias).length:0,rotinas:perfil?Object.keys(perfil.rotinas).length:0,eventos:dados?dados.eventos.length:0,financas:dados?dados.financas.length:0}};
 }
 
 lerPerfil();   // já carrega os apelidos antes da primeira tela
