@@ -1,6 +1,7 @@
 /* ---------- finanças ---------- */
 let finView=new Date(now.getFullYear(),now.getMonth(),1),finTipo='d',armed=null;
 const finCache={};
+let falhaFin=false;
 async function loadFin(y,m,force){
   const k=mkey(y,m);if(finCache[k]&&!force)return finCache[k];
   try{
@@ -8,8 +9,12 @@ async function loadFin(y,m,force){
     const list=await run('getFinance',isoD(y,m,1),isoD(ny,nm,1));
     list.forEach(x=>x.valor=+x.valor);
     list.sort((a,b)=>b.date.localeCompare(a.date));
-    finCache[k]=list;
-  }catch(err){finCache[k]=[];modal('Não consegui abrir as finanças',IN_GAS?'Verifique se você autorizou o acesso ao Google Planilhas ao abrir o app.':'Tente de novo em instantes.')}
+    finCache[k]=list;falhaFin=false;
+  }catch(err){   // não guarda: da próxima vez que a tela abrir, tenta ler de novo
+    if(!falhaFin)modal('Não consegui abrir as finanças',IN_GAS?'Verifique se você autorizou o acesso ao Google Planilhas ao abrir o app.':'Tente de novo em instantes.');
+    falhaFin=true;
+    return [];
+  }
   return finCache[k];
 }
 function setTipo(t){
@@ -17,10 +22,13 @@ function setTipo(t){
   $('#fCat').innerHTML=CATS[t].map(c=>`<option>${c}</option>`).join('');
 }
 function moveFin(n){finView=new Date(finView.getFullYear(),finView.getMonth()+n,1);renderFinance()}
+let seqFin=0;
 async function renderFinance(){
-  const y=finView.getFullYear(),m=finView.getMonth();
+  const meu=++seqFin,y=finView.getFullYear(),m=finView.getMonth();
   $('#finMonth').textContent=months[m][0].toUpperCase()+months[m].slice(1)+' '+y;
   const list=await loadFin(y,m);
+  if(meu!==seqFin)return;
+  armed=null;
   const sum=(t,p)=>list.filter(x=>x.tipo===t&&(p===undefined||x.pago===p)).reduce((s,x)=>s+x.valor,0);
   const rec=sum('r'),desp=sum('d'),saldo=rec-desp,aPagar=sum('d',false),aReceber=sum('r',false);
   $('#finSum').innerHTML=
@@ -39,7 +47,7 @@ function renderFinList(list){
     const st=x.pago?(isR?'recebido':'pago'):(isR?'a receber':'a pagar');
     return `<div class="card fin-item"><div class="row"><div class="time">${d}</div><div class="grow"><div class="title">${esc(x.desc)}</div><div class="meta">${esc(x.cat)} · ${st}</div></div><div class="val ${isR?'pos':'neg'}">${isR?'+':'−'} ${brl(x.valor)}</div></div>`+
       `<div class="fin-actions"><button data-acao="pago" data-id="${esc(x.id)}">${x.pago?'Marcar pendente':(isR?'Marcar recebido':'Marcar pago')}</button><button data-acao="excluir" data-id="${esc(x.id)}">${armed===x.id?'Tem certeza?':'Excluir'}</button></div></div>`;
-  }).join(''):'<div class="card"><div class="meta">Nenhum lançamento neste mês.</div></div>';
+  }).join(''):'<div class="card"><div class="meta">'+(falhaFin?'Não consegui ler as finanças deste mês. Volte a esta tela para tentar de novo.':'Nenhum lançamento neste mês.')+'</div></div>';
 }
 async function addFin(ev){
   ev.preventDefault();
@@ -65,8 +73,15 @@ async function togglePago(id){
   const k=mkey(finView.getFullYear(),finView.getMonth()),x=(finCache[k]||[]).find(z=>z.id===id);if(!x)return;
   try{await run('setFinancePaid',id,!x.pago);x.pago=!x.pago;renderFinance()}catch(e){modal('Não consegui atualizar','Tente de novo em instantes.')}
 }
+let TEMPO_ARMADO=5000,armadoFinTimer=null;   // como o "Apagar dados": sem o segundo toque, volta a ser "Excluir"
 async function delFin(id){
-  if(armed!==id){armed=id;renderFinList();return}
+  if(armed!==id){
+    armed=id;renderFinList();
+    clearTimeout(armadoFinTimer);
+    armadoFinTimer=setTimeout(()=>{if(armed===id){armed=null;renderFinList()}},TEMPO_ARMADO);
+    return;
+  }
+  clearTimeout(armadoFinTimer);
   armed=null;
   try{await run('deleteFinance',id);delete finCache[mkey(finView.getFullYear(),finView.getMonth())];renderFinance()}catch(e){modal('Não consegui excluir','Tente de novo em instantes.')}
 }

@@ -8,14 +8,14 @@ let bancoMemoria=null;   // plano B quando o navegador bloqueia o localStorage
 
 /* exemplos criados a partir de hoje, para a agenda e as finanças nunca abrirem vazias */
 function dadosExemplo(){
-  const base=new Date(now.getFullYear(),now.getMonth(),now.getDate());
+  const hj=new Date(),base=new Date(hj.getFullYear(),hj.getMonth(),hj.getDate());
   const dia=n=>{const d=addDays(base,n);return isoD(d.getFullYear(),d.getMonth(),d.getDate())};
   const grade={0:[["09:00","10:00","AYO"],["09:00","10:00","Saúde"],["10:30","11:30","Reforma Tributária"],["10:30","11:30","Bloco Executivo"],["13:00","13:30","Conversa com a Ana"],["13:30","14:30","Operacional e Pendências"],["16:00","17:00","Laserterapia"]],
     1:[["09:00","10:00","AYO"],["10:30","11:30","Processos e Indicadores"],["10:30","11:30","Bloco Executivo"],["18:40","20:00","Curso Conselho Empresarial"]],
     2:[["09:00","10:00","AYO"],["10:30","11:30","Reforma Tributária na Prática"],["12:00","13:00","Laserterapia"]]};
   const eventos=[];let n=0;
   for(const off in grade)grade[off].forEach(e=>eventos.push({id:'x'+(++n),title:e[2],start:dia(+off)+'T'+e[0],end:dia(+off)+'T'+e[1],allDay:false}));
-  const y=now.getFullYear(),m=now.getMonth(),D=d=>isoD(y,m,Math.min(d,new Date(y,m+1,0).getDate()));
+  const y=hj.getFullYear(),m=hj.getMonth(),D=d=>isoD(y,m,Math.min(d,new Date(y,m+1,0).getDate()));
   const financas=[
     {id:'f1',date:D(5),desc:'Consultoria (exemplo)',cat:'Honorários',tipo:'r',valor:3200,pago:true},
     {id:'f2',date:D(5),desc:'Aluguel',cat:'Moradia',tipo:'d',valor:1800,pago:true},

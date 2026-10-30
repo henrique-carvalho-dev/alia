@@ -41,6 +41,29 @@ function apagarDados(){
   modal('Dados apagados','Os compromissos e lançamentos deste aparelho foram apagados e a Ália voltou aos exemplos. Suas preferências e o que ela aprendeu continuam.');
 }
 
+/* "hoje" depois da meia-noite: com o app aberto de um dia para o outro, o que era "hoje" (dia selecionado, mês das telas,
+   data do formulário) acompanha o novo dia e a tela atual é desenhada de novo */
+const hojeISO=()=>{const d=new Date();return isoD(d.getFullYear(),d.getMonth(),d.getDate())};
+let diaVisto=hojeISO();
+function verificarVirada(redesenhaHoje){
+  const h=hojeISO();
+  if(h===diaVisto){const t=document.querySelector('.screen.active');if(redesenhaHoje&&t&&t.id==='today')renderToday();return}   // mesmo dia: ao voltar ao app, atualiza saudação, próximo compromisso e atenções
+  const antes=diaVisto,d=new Date();diaVisto=h;
+  const mesDe=iso=>iso.slice(0,7),mesNovo=new Date(d.getFullYear(),d.getMonth(),1);
+  if(selected===antes)selected=h;
+  if(mkey(view.getFullYear(),view.getMonth())===mesDe(antes))view=mesNovo;
+  if(mkey(finView.getFullYear(),finView.getMonth())===mesDe(antes))finView=mesNovo;
+  if($('#fDate').value===antes)$('#fDate').value=h;
+  limparCaches();
+  const tela=document.querySelector('.screen.active');
+  if(tela&&tela.id==='today')renderToday();
+  else if(tela&&tela.id==='agenda')renderCalendar();
+  else if(tela&&tela.id==='finance')renderFinance();
+}
+setInterval(()=>verificarVirada(false),30000);
+addEventListener('focus',()=>verificarVirada(true));
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)verificarVirada(true)});
+
 /* ---------- início ---------- */
 marcarTema(lerTema());
 if(IN_GAS)$('#dadosLocais').hidden=true;   // no Apps Script os dados são do servidor, não deste aparelho

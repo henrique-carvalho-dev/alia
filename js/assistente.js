@@ -45,7 +45,7 @@ async function send(){
   if(!p.date){say('Para qual dia? Ex.: "amanhã", "quinta" ou "15/10".','ai');return}
   if(!p.valid){say('Que horas? Ex.: "às 14h" ou "14:30".','ai');return}
   const y=p.date.getFullYear(),m=p.date.getMonth(),d=p.date.getDate(),k=isoD(y,m,d);
-  await loadMonth(y,m);
+  await loadMonth(y,m,false,true);   // se falhar, o aviso vai no próprio cartão (abaixo)
   if(meu!==seqEnvio)return;
   const s=p.hh*60+p.mi,e=Math.min(s+p.dur,1439);   // o compromisso termina, no máximo, às 23:59 (é o que fica gravado)
   const virt=rotinasVirtuais(k).filter(x=>chaveRotina(x.title)!==chaveRotina(p.title));   // rotina confirmada que costuma cair nesse dia da semana, mesmo fora da agenda
@@ -57,6 +57,7 @@ async function send(){
     html+=`<br><br>⚠️ Conflita com: ${clash.map(x=>esc(x.title)+' ('+hhmm(x.s)+(ehRotina(x)?', sua rotina':'')+')').join(', ')}.`+(clash.some(x=>x.virtual)?' Você costuma ter essa rotina nesse dia da semana, mesmo sem ela estar na agenda.':'')+(alt!==null?` Horário livre mais próximo: ${hhmm(alt)}.`:'');
   }
   if(new Date(y,m,d,p.hh,p.mi)<new Date())html+='<br><br>🕘 Esse horário já passou. Confirme só se quiser registrar mesmo assim.';
+  if(falhaAgenda)html+='<br><br>⚠️ Não consegui ler a agenda, então não sei se há conflito nesse horário.';
   pending={title:p.title,y,m,d,h:p.hh,mi:p.mi,dur:p.dur};
   html+='<div class="btns"><button class="btn-ok" onclick="confirmEv()">Confirmar</button><button class="btn-no" onclick="cancelEv()">Cancelar</button></div>';
   say('Posso criar este compromisso?<br><br>'+html,'ai');
@@ -66,7 +67,7 @@ async function confirmEv(){
   if(!pending)return;const p=pending;pending=null;
   try{
     await run('createEvent',p.title,p.y,p.m+1,p.d,p.h,p.mi,p.dur);
-    delete cache[mkey(p.y,p.m)];await loadMonth(p.y,p.m,true);
+    delete cache[mkey(p.y,p.m)];await loadMonth(p.y,p.m,true,true);
     say('Pronto, criei "'+esc(p.title)+'" '+(IN_GAS?'no seu Google Agenda.':'na sua agenda.'),'ai');
   }catch(err){say(err&&err.limite?esc(err.message):(IN_GAS?'Não consegui criar o evento. Verifique a autorização do Google Agenda e tente de novo.':'Não consegui criar o evento. Tente de novo.'),'ai')}
 }

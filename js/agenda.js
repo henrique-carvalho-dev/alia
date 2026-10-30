@@ -3,7 +3,8 @@ let view=new Date(now.getFullYear(),now.getMonth(),1);
 let selected=isoD(now.getFullYear(),now.getMonth(),now.getDate());
 const cache={};   // "yyyy-mm" -> eventos
 
-async function loadMonth(y,m,force){
+let falhaAgenda=false;   // a última leitura falhou (o aviso aparece uma vez por sequência de falhas)
+async function loadMonth(y,m,force,silencioso){
   const k=mkey(y,m);
   if(cache[k]&&!force)return cache[k];
   try{
@@ -11,8 +12,12 @@ async function loadMonth(y,m,force){
     const list=await run('getEvents',isoD(y,m,1),isoD(ny,nm,1));
     list.forEach(e=>{e.title=smart(e.title);e.date=e.start.slice(0,10);e.s=e.allDay?0:toMin(e.start);e.e=e.allDay?0:toMin(e.end)});
     list.sort((a,b)=>a.date.localeCompare(b.date)||a.s-b.s);
-    cache[k]=list;
-  }catch(err){cache[k]=[];modal('Não consegui ler a agenda',IN_GAS?'Verifique se você autorizou o acesso ao Google Agenda ao abrir o app pela primeira vez.':'Tente de novo em instantes.')}
+    cache[k]=list;falhaAgenda=false;
+  }catch(err){   // não guarda: da próxima vez que a tela abrir, tenta ler de novo
+    if(!falhaAgenda&&!silencioso)modal('Não consegui ler a agenda',IN_GAS?'Verifique se você autorizou o acesso ao Google Agenda ao abrir o app pela primeira vez.':'Tente de novo em instantes.');
+    falhaAgenda=true;
+    return [];
+  }
   return cache[k];
 }
 function eventsOn(date){
@@ -41,12 +46,14 @@ function freeSlot(date,dur,after,extras){
   return null;
 }
 
+let seqHoje=0;
 let avisoRotina='';   // confirmação curta depois de responder "é uma rotina?"
 async function renderToday(){
-  const h=new Date().getHours();
+  const meu=++seqHoje,h=new Date().getHours();
   $('#greet').innerHTML=(h<12?'Bom dia':h<18?'Boa tarde':'Boa noite')+', Loh.<br>Seu dia está organizado.';
   const t=new Date(),k=isoD(t.getFullYear(),t.getMonth(),t.getDate());
   await loadMonth(t.getFullYear(),t.getMonth());
+  if(meu!==seqHoje)return;
   const list=eventsOn(k),nowMin=t.getHours()*60+t.getMinutes();
   const next=list.find(e=>!e.allDay&&e.e>nowMin);
   if(next){
@@ -102,10 +109,12 @@ function rowHTML(e){
   return `<div class="card row"><div class="time">${e.allDay?'Dia':hhmm(e.s)}</div><div class="grow"><div class="title">${esc(e.title)}</div><div class="meta">${e.allDay?'Dia inteiro':hhmm(e.s)+' – '+hhmm(e.e)}${e.cal?' · '+esc(e.cal):''}</div></div>${conf?'<span class="badge warn">conflito</span>':''}</div>`;
 }
 
+let seqCal=0;   // cliques rápidos nas setas: só a última leitura desenha o mês
 async function renderCalendar(){
-  const y=view.getFullYear(),m=view.getMonth();
+  const meu=++seqCal,y=view.getFullYear(),m=view.getMonth();
   $('#monthTitle').textContent=months[m][0].toUpperCase()+months[m].slice(1)+' '+y;
   await loadMonth(y,m);
+  if(meu!==seqCal)return;
   const first=new Date(y,m,1).getDay(),days=new Date(y,m+1,0).getDate(),td=new Date();
   const todayK=isoD(td.getFullYear(),td.getMonth(),td.getDate());
   let h='',confDays=[];
@@ -126,7 +135,7 @@ function selectDay(k){selected=k;renderCalendar()}
 function renderEvents(){
   const [y,m,d]=selected.split('-');$('#selectedTitle').textContent=`${d}/${m} · Compromissos`;
   const arr=eventsOn(selected);
-  $('#events').innerHTML=arr.length?arr.map(rowHTML).join(''):'<div class="card"><div class="meta">Nenhum compromisso neste dia.</div></div>';
+  $('#events').innerHTML=arr.length?arr.map(rowHTML).join(''):'<div class="card"><div class="meta">'+(falhaAgenda?'Não consegui ler a agenda. Toque em outro dia ou volte a esta tela para tentar de novo.':'Nenhum compromisso neste dia.')+'</div></div>';
 }
 function reorganize(){
   const pairs=conflictsOn(selected);
